@@ -5,3 +5,8 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.5.23", features = ["derive"] }
+clap-verbosity-flag = "3.0.2"
+domain = { version = "0.10.3", features = ["resolv-sync"] }
+env_logger = "0.11.6"
+log = "0.4.22"
+reqwest = "0.12.9"
