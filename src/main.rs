@@ -1,9 +1,15 @@
 use crate::{cli::CliArgs, config::OKDConfig};
 use anyhow::{Context, Result};
 use clap::Parser;
+use directories::ProjectDirs;
 use log::{debug, error, info};
 use oauth2::AccessToken;
-use std::process::{exit, Command};
+use std::{
+    fs::{self, Permissions},
+    os::unix::fs::PermissionsExt,
+    path::PathBuf,
+    process::{exit, Command},
+};
 
 mod cli;
 mod config;
@@ -29,7 +35,9 @@ fn main() {
     };
     debug!("{config:#?}");
 
-    let okd_token = match oauth::get_okd_token(&config) {
+    let cache_dir = get_cache_dir();
+
+    let okd_token = match oauth::get_okd_token(&config, &cache_dir) {
         Ok(token) => token,
         Err(err) => {
             error!("Could not get token: {err:#}");
@@ -40,6 +48,16 @@ fn main() {
         error!("Could not login to OKD: {err:#}");
         exit(1);
     }
+}
+
+fn get_cache_dir() -> PathBuf {
+    let project_dirs = ProjectDirs::from("", "", "oc-sso-login-rs").expect("HOME should be set");
+    let cache_dir = project_dirs.cache_dir();
+    debug!("Cache dir: {}", cache_dir.display());
+    fs::create_dir_all(cache_dir).expect("Could not create cache dir");
+    fs::set_permissions(cache_dir, Permissions::from_mode(0o700))
+        .expect("Could not set cache dir permissions");
+    cache_dir.to_path_buf()
 }
 
 fn oc_login(config: &OKDConfig, token: &AccessToken) -> Result<()> {
