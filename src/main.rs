@@ -1,11 +1,13 @@
-use crate::config::OKDConfig;
-use crate::cli::CliArgs;
+use crate::{cli::CliArgs, config::OKDConfig};
+use anyhow::{Context, Result};
 use clap::Parser;
 use log::{debug, error, info};
-use std::process::exit;
+use oauth2::AccessToken;
+use std::process::{exit, Command};
 
-mod config;
 mod cli;
+mod config;
+mod oauth;
 
 fn main() {
     let cli = CliArgs::parse();
@@ -26,4 +28,35 @@ fn main() {
         }
     };
     debug!("{config:#?}");
+
+    let okd_token = match oauth::get_okd_token(&config) {
+        Ok(token) => token,
+        Err(err) => {
+            error!("Could not get token: {err:#}");
+            exit(1);
+        }
+    };
+    if let Err(err) = oc_login(&config, &okd_token) {
+        error!("Could not login to OKD: {err:#}");
+        exit(1);
+    }
+}
+
+fn oc_login(config: &OKDConfig, token: &AccessToken) -> Result<()> {
+    let mut cmd = Command::new("oc");
+    cmd.args([
+        "login",
+        "--server",
+        &config.api_url,
+        "--token",
+        token.secret(),
+    ]);
+
+    let status = cmd.status().context("Failed to execute `oc`")?;
+
+    if !status.success() {
+        anyhow::bail!("`oc login` failed, see above for error output");
+    }
+
+    Ok(())
 }
