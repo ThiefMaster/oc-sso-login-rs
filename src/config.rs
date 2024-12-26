@@ -16,7 +16,7 @@ pub struct OKDConfig {
 
 impl OKDConfig {
     fn from_map(
-        map: HashMap<String, String>,
+        map: &HashMap<String, String>,
         insecure_skip_tls_verify: bool,
     ) -> Result<Self, &'static str> {
         let Some(token_exchange_url) = map.get("token_exchange_url") else {
@@ -98,6 +98,6 @@ impl OKDConfig {
             .collect();
 
         trace!("Data from DNS: {config:?}");
-        Self::from_map(config, insecure_skip_tls_verify)
+        Self::from_map(&config, insecure_skip_tls_verify)
     }
 }
