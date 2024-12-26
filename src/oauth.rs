@@ -1,5 +1,7 @@
 use crate::config::OKDConfig;
 use anyhow::Result;
+use chrono::serde::ts_seconds;
+use chrono::{DateTime, Local, Utc};
 use jsonwebtoken as jwt;
 use log::{debug, error, info, trace, warn};
 use oauth2::basic::{BasicClient, BasicTokenResponse};
@@ -31,7 +33,10 @@ fn get_token_url(config: &OKDConfig) -> Result<TokenUrl, ParseError> {
 }
 
 #[derive(Deserialize)]
-struct UnusedJWTData {}
+struct JWTData {
+    #[serde(with = "ts_seconds")]
+    exp: DateTime<Utc>,
+}
 
 fn delete_cached_token(cache_file_path: &Path) {
     debug!("Deleting cache file: {}", cache_file_path.display());
@@ -69,15 +74,22 @@ fn get_cached_token(
     let mut validation = jwt::Validation::new(header.alg);
     validation.insecure_disable_signature_validation();
     validation.set_audience(&[audience]);
-    match jwt::decode::<UnusedJWTData>(access_token.secret(), &key, &validation) {
-        Ok(_) => Some(access_token.to_owned()),
+    match jwt::decode::<JWTData>(access_token.secret(), &key, &validation) {
+        Ok(data) => {
+            debug!(
+                "Token expires at {}",
+                data.claims.exp.with_timezone(&Local).to_rfc2822()
+            );
+            Some(access_token.to_owned())
+        }
         Err(err) => match err.kind() {
+            jwt::errors::ErrorKind::ExpiredSignature if !allow_refresh => {
+                info!("Token expired, but refreshing is disabled");
+                delete_cached_token(&cache_file_path);
+                None
+            }
             jwt::errors::ErrorKind::ExpiredSignature => {
-                info!("Token expired");
-                if !allow_refresh {
-                    delete_cached_token(&cache_file_path);
-                    return None;
-                }
+                info!("Token expired, refreshing");
                 let refresh_token = token.refresh_token()?;
                 match use_refresh_token(config, audience, refresh_token) {
                     Ok(new_token) => {
