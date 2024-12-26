@@ -18,6 +18,10 @@ pub struct CliArgs {
     #[arg(default_value = "paas")]
     pub cluster: String,
 
+    /// Disable TLS certificate validation
+    #[arg(long)]
+    pub insecure_skip_tls_verify: bool,
+
     /// Enable verbose output
     #[command(flatten)]
     pub verbosity: Verbosity,

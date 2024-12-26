@@ -26,7 +26,7 @@ fn main() {
     let config_host = format!("_config.{cluster}.okd.cern.ch");
 
     debug!("Querying config data from {config_host}");
-    let config = match OKDConfig::from_dns(&config_host) {
+    let config = match OKDConfig::from_dns(&config_host, cli.insecure_skip_tls_verify) {
         Ok(config) => config,
         Err(err) => {
             error!("Could not load config: {err}");
@@ -69,6 +69,10 @@ fn oc_login(config: &OKDConfig, token: &AccessToken) -> Result<()> {
         "--token",
         token.secret(),
     ]);
+
+    if config.insecure_skip_tls_verify {
+        cmd.arg("--insecure-skip-tls-verify=true");
+    }
 
     let status = cmd.status().context("Failed to execute `oc`")?;
 

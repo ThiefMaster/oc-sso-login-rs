@@ -18,11 +18,13 @@ use std::path::{Path, PathBuf};
 
 static HTTP_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
-fn build_http_client() -> Client {
+fn build_http_client(config: &OKDConfig) -> Client {
     ClientBuilder::new()
         // Following redirects opens the client up to SSRF vulnerabilities.
         .redirect(reqwest::redirect::Policy::none())
         .user_agent(HTTP_USER_AGENT)
+        .danger_accept_invalid_certs(config.insecure_skip_tls_verify)
+        .danger_accept_invalid_hostnames(config.insecure_skip_tls_verify)
         .build()
         .expect("Client should build")
 }
@@ -147,7 +149,7 @@ fn use_refresh_token(
     let token_url = get_token_url(config)?;
     let client_id = ClientId::new(audience.to_string());
     let client = BasicClient::new(client_id).set_token_uri(token_url);
-    let http_client = build_http_client();
+    let http_client = build_http_client(config);
     let token_result = client
         .exchange_refresh_token(refresh_token)
         .request(&http_client)?;
@@ -168,7 +170,7 @@ fn device_flow_login(config: &OKDConfig, cache_dir: &Path) -> Result<AccessToken
         .set_device_authorization_url(device_auth_url)
         .set_token_uri(token_url);
 
-    let http_client = build_http_client();
+    let http_client = build_http_client(config);
 
     let details: StandardDeviceAuthorizationResponse =
         client.exchange_device_code().request(&http_client)?;
@@ -204,7 +206,7 @@ fn exchange_oauth_token(
     }
 
     let token_url = get_token_url(config)?;
-    let http_client = build_http_client();
+    let http_client = build_http_client(config);
     let response = http_client
         .post(token_url.to_string())
         .form(&[
@@ -236,7 +238,7 @@ struct OKDTokenResponse {
 fn exchange_okd_token(config: &OKDConfig, token: &AccessToken) -> Result<AccessToken> {
     let base_url = config.token_exchange_url.to_string();
     let api_url = format!("{base_url}/openshift-api-token");
-    let http_client = build_http_client();
+    let http_client = build_http_client(config);
     let response = http_client
         .get(api_url)
         .bearer_auth(token.secret())

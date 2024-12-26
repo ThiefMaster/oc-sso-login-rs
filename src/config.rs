@@ -6,6 +6,7 @@ use std::{collections::HashMap, str::FromStr};
 
 #[derive(Debug)]
 pub struct OKDConfig {
+    pub insecure_skip_tls_verify: bool,
     pub token_exchange_url: String,
     pub auth_url: String,
     pub audience_id: String,
@@ -14,7 +15,10 @@ pub struct OKDConfig {
 }
 
 impl OKDConfig {
-    fn from_map(map: HashMap<String, String>) -> Result<Self, &'static str> {
+    fn from_map(
+        map: HashMap<String, String>,
+        insecure_skip_tls_verify: bool,
+    ) -> Result<Self, &'static str> {
         let Some(token_exchange_url) = map.get("token_exchange_url") else {
             return Err("Missing token_exchange_url");
         };
@@ -52,6 +56,7 @@ impl OKDConfig {
             return Err("Empty login application ID");
         }
         Ok(Self {
+            insecure_skip_tls_verify,
             token_exchange_url: token_exchange_url.to_string(),
             auth_url: auth_url.to_string(),
             audience_id: audience_id.to_string(),
@@ -60,7 +65,10 @@ impl OKDConfig {
         })
     }
 
-    pub fn from_dns(config_host: &str) -> Result<Self, &'static str> {
+    pub fn from_dns(
+        config_host: &str,
+        insecure_skip_tls_verify: bool,
+    ) -> Result<Self, &'static str> {
         let name = Name::<Vec<_>>::from_str(config_host).unwrap();
         let res =
             StubResolver::run(move |stub| async move { stub.query((name, Rtype::TXT)).await });
@@ -90,6 +98,6 @@ impl OKDConfig {
             .collect();
 
         trace!("Data from DNS: {config:?}");
-        Self::from_map(config)
+        Self::from_map(config, insecure_skip_tls_verify)
     }
 }
