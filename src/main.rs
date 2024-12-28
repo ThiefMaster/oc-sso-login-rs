@@ -74,6 +74,7 @@ fn oc_login(config: &OKDConfig, token: &AccessToken) -> Result<()> {
         cmd.arg("--insecure-skip-tls-verify=true");
     }
 
+    info!("Passing token to openshift client");
     let status = cmd.status().context("Failed to execute `oc`")?;
 
     if !status.success() {

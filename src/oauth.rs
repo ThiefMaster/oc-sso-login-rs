@@ -268,6 +268,7 @@ pub fn get_okd_token(config: &OKDConfig, cache_dir: &Path) -> Result<AccessToken
             exchange_oauth_token(config, cache_dir, &login_app_token)?
         }
     };
+    info!("Requesting OKD token");
     let okd_token = exchange_okd_token(config, &cluster_app_token)?;
     Ok(okd_token)
 }
