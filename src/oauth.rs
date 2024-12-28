@@ -76,6 +76,8 @@ fn get_cached_token(
     let mut validation = jwt::Validation::new(header.alg);
     validation.insecure_disable_signature_validation();
     validation.set_audience(&[audience]);
+    validation.leeway = 0;
+    validation.reject_tokens_expiring_in_less_than = 10;
     match jwt::decode::<JWTData>(access_token.secret(), &key, &validation) {
         Ok(data) => {
             debug!(
