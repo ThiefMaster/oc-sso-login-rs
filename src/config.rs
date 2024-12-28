@@ -64,17 +64,16 @@ impl OKDConfig {
     }
 
     pub fn from_dns(config_host: &str, insecure_skip_tls_verify: bool) -> Result<Self> {
-        let name = Name::<Vec<_>>::from_str(config_host).unwrap();
+        let name = Name::<Vec<_>>::from_str(config_host).expect("Invalid DNS name");
         let res =
-            StubResolver::run(move |stub| async move { stub.query((name, Rtype::TXT)).await });
-        let res = res.unwrap();
+            StubResolver::run(move |stub| async move { stub.query((name, Rtype::TXT)).await })?;
         let rcode = res.header().rcode();
 
         if rcode != Rcode::NOERROR {
             anyhow::bail!("DNS lookup failed ({rcode})");
         }
 
-        let answer = res.answer().unwrap();
+        let answer = res.answer().expect("DNS answer should not be empty");
         if answer.count() == 0 {
             anyhow::bail!("No DNS records found");
         }
@@ -83,10 +82,13 @@ impl OKDConfig {
             // make sure we only have TXT records
             .limit_to::<Txt<_>>()
             // convert them to strings
-            .map(|rec| rec.unwrap().data().to_string())
+            .map(|rec| rec.expect("Invalid DNS record").data().to_string())
             // split them into key, value tuples
             .map(|line| {
-                let (k, v) = line.trim_matches('"').split_once('=').unwrap();
+                let (k, v) = line
+                    .trim_matches('"')
+                    .split_once('=')
+                    .expect("Line does not contain `=`");
                 (k.trim().to_string(), v.trim().to_string())
             })
             .collect();

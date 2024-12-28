@@ -1,6 +1,6 @@
 use clap::builder::{
     styling::{AnsiColor, Effects},
-    Styles,
+    NonEmptyStringValueParser, Styles,
 };
 use clap::Parser;
 use clap_verbosity_flag::Verbosity;
@@ -15,7 +15,7 @@ const STYLES: Styles = Styles::styled()
 #[command(version, about, long_about = None, styles = STYLES)]
 pub struct CliArgs {
     /// Friendly name of a CERN OKD4 cluster
-    #[arg(default_value = "paas")]
+    #[arg(default_value = "paas", value_parser = NonEmptyStringValueParser::new())]
     pub cluster: String,
 
     /// Disable TLS certificate validation

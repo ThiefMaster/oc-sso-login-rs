@@ -70,7 +70,7 @@ fn get_cached_token(
 
     let access_token = token.access_token();
     info!("Loaded {audience} token from cache");
-    let header = jwt::decode_header(access_token.secret()).unwrap();
+    let header = jwt::decode_header(access_token.secret()).expect("Could not decode JWT header");
     trace!("JWT header: {header:#?}");
     let key = jwt::DecodingKey::from_secret(&[]);
     let mut validation = jwt::Validation::new(header.alg);
@@ -181,10 +181,12 @@ fn device_flow_login(config: &OKDConfig, cache_dir: &Path) -> Result<AccessToken
         details.verification_uri(),
     );
 
-    eprintln!(
-        "\nYou may also use this link to avoid entering the code manually:\n{}",
-        details.verification_uri_complete().unwrap().secret()
-    );
+    if let Some(verification_uri_complete) = details.verification_uri_complete() {
+        eprintln!(
+            "\nYou may also use this link to avoid entering the code manually:\n{}",
+            verification_uri_complete.secret()
+        );
+    }
 
     let token_result = client.exchange_device_access_token(&details).request(
         &http_client,
@@ -225,7 +227,8 @@ fn exchange_oauth_token(
         .send()?;
     response.error_for_status_ref()?;
     let serialized_json = response.text()?;
-    let deserialized_token = serde_json::from_str::<BasicTokenResponse>(&serialized_json).unwrap();
+    let deserialized_token = serde_json::from_str::<BasicTokenResponse>(&serialized_json)
+        .expect("Could not parse token");
     save_cached_token(&config.audience_id, cache_dir, &deserialized_token);
     Ok(deserialized_token.access_token().to_owned())
 }
