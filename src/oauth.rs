@@ -227,10 +227,13 @@ fn exchange_oauth_token(
             ("subject_token", token.secret()),
         ])
         .send()?;
-    response.error_for_status_ref()?;
-    let serialized_json = response.text()?;
-    let deserialized_token = serde_json::from_str::<BasicTokenResponse>(&serialized_json)
-        .expect("Could not parse token");
+    let status = response.status();
+    let text = response.text()?;
+    if !status.is_success() {
+        anyhow::bail!("SSO token exchange failed ({}): {}", status, text);
+    }
+    let deserialized_token =
+        serde_json::from_str::<BasicTokenResponse>(&text).expect("Could not parse token");
     save_cached_token(&config.audience_id, cache_dir, &deserialized_token);
     Ok(deserialized_token.access_token().to_owned())
 }
