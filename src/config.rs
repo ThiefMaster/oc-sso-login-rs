@@ -1,7 +1,8 @@
+use anyhow::Result;
 use domain::base::{iana::Rcode, Rtype};
 use domain::resolv::StubResolver;
 use domain::{base::name::Name, rdata::Txt};
-use log::{trace, warn};
+use log::trace;
 use std::{collections::HashMap, str::FromStr};
 
 #[derive(Debug)]
@@ -15,45 +16,42 @@ pub struct OKDConfig {
 }
 
 impl OKDConfig {
-    fn from_map(
-        map: &HashMap<String, String>,
-        insecure_skip_tls_verify: bool,
-    ) -> Result<Self, &'static str> {
+    fn from_map(map: &HashMap<String, String>, insecure_skip_tls_verify: bool) -> Result<Self> {
         let Some(token_exchange_url) = map.get("token_exchange_url") else {
-            return Err("Missing token_exchange_url");
+            anyhow::bail!("Missing token_exchange_url");
         };
         let Some(auth_url) = map.get("auth_url") else {
-            return Err("Missing auth_url");
+            anyhow::bail!("Missing auth_url");
         };
         let Some(audience_id) = map.get("audience_id") else {
-            return Err("Missing audience_id");
+            anyhow::bail!("Missing audience_id");
         };
         let Some(login_application_id) = map.get("login_application_id") else {
-            return Err("Missing login_application_id");
+            anyhow::bail!("Missing login_application_id");
         };
         let Some(api_url) = map.get("api_url") else {
-            return Err("Missing api_url");
+            anyhow::bail!("Missing api_url");
         };
         if !auth_url.starts_with("https://") {
-            return Err("Auth URL does not start with https://");
+            anyhow::bail!("Auth URL does not start with https://");
         }
         if !api_url.starts_with("https://") {
-            return Err("API URL does not start with https://");
+            anyhow::bail!("API URL does not start with https://");
         }
         if !api_url.ends_with(".cern.ch") {
-            return Err("API URL does not end with .cern.ch");
+            anyhow::bail!("API URL does not end with .cern.ch");
         }
         if !token_exchange_url.starts_with("https://") {
-            return Err("Token Exchange URL does not start with https://");
+            anyhow::bail!("Token Exchange URL does not start with https://");
         }
         if !token_exchange_url.ends_with(".cern.ch") {
-            return Err("Token Exchange URL does not end with .cern.ch");
+            anyhow::bail!("Token Exchange URL does not end with .cern.ch");
         }
         if audience_id.is_empty() {
-            return Err("Empty audience ID");
+            anyhow::bail!("Empty audience ID");
         }
         if login_application_id.is_empty() {
-            return Err("Empty login application ID");
+            anyhow::bail!("Empty login application ID");
         }
         Ok(Self {
             insecure_skip_tls_verify,
@@ -65,10 +63,7 @@ impl OKDConfig {
         })
     }
 
-    pub fn from_dns(
-        config_host: &str,
-        insecure_skip_tls_verify: bool,
-    ) -> Result<Self, &'static str> {
+    pub fn from_dns(config_host: &str, insecure_skip_tls_verify: bool) -> Result<Self> {
         let name = Name::<Vec<_>>::from_str(config_host).unwrap();
         let res =
             StubResolver::run(move |stub| async move { stub.query((name, Rtype::TXT)).await });
@@ -76,13 +71,12 @@ impl OKDConfig {
         let rcode = res.header().rcode();
 
         if rcode != Rcode::NOERROR {
-            warn!("DNS lookup rcode: {rcode}");
-            return Err("DNS lookup failed");
+            anyhow::bail!("DNS lookup failed ({rcode})");
         }
 
         let answer = res.answer().unwrap();
         if answer.count() == 0 {
-            return Err("No DNS records found");
+            anyhow::bail!("No DNS records found");
         }
 
         let config: HashMap<String, String> = answer
