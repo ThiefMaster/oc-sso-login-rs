@@ -249,9 +249,12 @@ fn exchange_okd_token(config: &OKDConfig, token: &AccessToken) -> Result<AccessT
         .bearer_auth(token.secret())
         .query(&[("redirect-uri", "http://localhost")]) // dummy value required by the API
         .send()?;
-    response.error_for_status_ref()?;
-    let serialized_json = &response.text()?;
-    let deserialized_token: OKDTokenResponse = serde_json::from_str(serialized_json)?;
+    let status = response.status();
+    let text = response.text()?;
+    if !status.is_success() {
+        anyhow::bail!("OKD token exchange failed ({}): {}", status, text);
+    }
+    let deserialized_token: OKDTokenResponse = serde_json::from_str(&text)?;
     Ok(deserialized_token.token)
 }
 
