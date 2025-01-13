@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2021"
 repository = "https://github.com/ThiefMaster/oc-sso-login-rs"
 
+[[bin]]
+# rename so one can use `oc sso-login-rs`
+name = "oc-sso_login_rs"
+path = "src/main.rs"
+
 [dependencies]
 anyhow = "1.0.95"
 chrono = "0.4.39"
