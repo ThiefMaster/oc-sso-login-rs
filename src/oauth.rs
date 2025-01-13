@@ -54,18 +54,13 @@ fn get_cached_token(
     allow_refresh: bool,
 ) -> Option<AccessToken> {
     let cache_file_path = get_cache_file_path(audience, cache_dir);
-    let token: BasicTokenResponse = match File::open(&cache_file_path) {
-        Err(err) => {
-            info!("No cached {audience} token found: {err}");
-            return None;
-        }
-        Ok(f) => match serde_json::from_reader(f).map_err(|e| anyhow::anyhow!("{e}")) {
-            Err(err) => {
-                warn!("Could not load cached {audience} token: {err}");
-                return None;
-            }
-            Ok(token) => token,
-        },
+    let token: BasicTokenResponse = {
+        let f = File::open(&cache_file_path)
+            .map_err(|err| info!("No cached {audience} token found: {err}"))
+            .ok()?;
+        serde_json::from_reader(f)
+            .map_err(|err| warn!("Could not load cached {audience} token: {err}"))
+            .ok()?
     };
 
     let access_token = token.access_token();
